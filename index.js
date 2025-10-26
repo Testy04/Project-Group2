@@ -13,6 +13,12 @@ let students = [
 
 let nextId = 106; // Counter for new student IDs
 
+// READ (GET) - View all student records
+app.get('/studentrecords', (req, res) => {
+    res.status(200).json(students);
+});
+
+
 //  CREATE (POST) - Add a new student record
 app.post('/studentrecords', (req, res) => {
     const { name, major, age, gpa, email, enrollmentDate } = req.body;
@@ -51,18 +57,6 @@ app.post('/studentrecords', (req, res) => {
     });
 });
 
-let nextId = 106; // Counter for new student IDs
-
-// READ (GET) - View all student records
-app.get('/studentrecords', (req, res) => {
-    res.status(200).json(students);
-});
-
-
-// READ (GET) - View all student records
-app.get('/studentrecords', (req, res) => {
-    res.status(200).json(students);
-});
 
 const PORT = process.env.PORT;
 
