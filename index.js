@@ -1,226 +1,209 @@
-require('dotenv').config();
+require('dotenv').config(); // Load .env variables
 const express = require('express');
 const app = express();
-app.use(express.json()); // parse JSON bodies
+app.use(express.json()); // Parse JSON bodies
 
 // -------------------------------
-// In-memory data (example seed)
+// In-memory data (with consistent fields for validation)
 // -------------------------------
 let students = [
-  { id: 101, indexNumber: 'UG1001', name: 'Alice Smith', major: 'Computer Science', age: 20, gpa: 3.8, email: 'alice@example.com', enrollmentDate: '2023-09-01' },
-  { id: 102, indexNumber: 'UG1002', name: 'Bob Johnson', major: 'Mechanical Engineering', age: 21, gpa: 3.2, email: 'bob@example.com', enrollmentDate: '2022-09-01' },
-  { id: 103, indexNumber: 'UG1003', name: 'Charlie Brown', major: 'History', age: 19, gpa: 2.9, email: 'charlie@example.com', enrollmentDate: '2023-01-15' },
-  { id: 104, indexNumber: 'UG1004', name: 'Dana Scully', major: 'Biology', age: 22, gpa: 3.95, email: 'dana@example.com', enrollmentDate: '2021-09-01' },
-  { id: 105, indexNumber: 'UG1005', name: 'Evan Peters', major: 'Fine Arts', age: 20, gpa: 3.5, email: 'evan@example.com', enrollmentDate: '2023-09-01' }
+    { id: 101, name: 'Alice Smith', major: 'Computer Science', age: 20, gpa: 3.8, email: 'alice@example.com', enrollmentDate: '2023-09-01' },
+    { id: 102, name: 'Bob Johnson', major: 'Mechanical Engineering', age: 21, gpa: 3.2, email: 'bob@example.com', enrollmentDate: '2022-09-01' },
+    { id: 103, name: 'Charlie Brown', major: 'History', age: 19, gpa: 2.9, email: 'charlie@example.com', enrollmentDate: '2023-01-15' },
+    { id: 104, name: 'Dana Scully', major: 'Biology', age: 22, gpa: 3.95, email: 'dana@example.com', enrollmentDate: '2021-09-01' },
+    { id: 105, name: 'Evan Peters', major: 'Fine Arts', age: 20, gpa: 3.5, email: 'evan@example.com', enrollmentDate: '2023-09-01' },
 ];
 let nextId = 106;
 
 // -------------------------------
-// Helper functions & validators
+// Helper & Validation Functions (Tasks 5 & 6)
 // -------------------------------
+
 const isValidGpa = (g) => {
-  if (typeof g !== 'number') return false;
-  return g >= 0.0 && g <= 4.0;
+    // Ensures GPA is a number and is within the 0.0 to 4.0 range (Task 6)
+    return typeof g === 'number' && g >= 0.0 && g <= 4.0;
 };
 
-const indexNumberRegex = /^[A-Za-z0-9]+$/; // letters + numbers only
-
-function findStudentById(id) {
-  return students.find(s => s.id === id);
-}
-
-function findStudentByIndex(indexNumber) {
-  return students.find(s => s.indexNumber === indexNumber);
-}
-
-// -------------------------------
-// Middleware: Simple request logger
-// -------------------------------
-app.use((req, res, next) => {
-  console.log('${new Date().toISOString()} - ${req.method} ${req.originalUrl}');
-  next();
-});
+const findStudentById = (id) => {
+    return students.find(s => s.id === parseInt(id, 10));
+};
 
 // -------------------------------
 // ROUTES
 // -------------------------------
 
-// TASK B (Read) + Sorting & Pagination (F)
-// GET /studentrecords
-// Query support: minGpa, maxGpa, name, major, sort (field), order (asc|desc), limit, page
+// Task 2 & 8: Read Students with Filtering, Sorting, and Pagination
+// GET /studentrecords?minGpa=3.5&sort=name&order=asc&limit=10&page=1
 app.get('/studentrecords', (req, res, next) => {
-  try {
-    let results = [...students];
+    try {
+        let results = [...students];
 
-    // Filters
-    const { minGpa, maxGpa, name, major, sort, order, limit, page } = req.query;
+        // --- Filtering (Task 2) ---
+        const { minGpa, maxGpa, name, major, sort, order, limit, page } = req.query;
 
-    if (minGpa !== undefined) {
-      const m = parseFloat(minGpa);
-      if (!isNaN(m)) results = results.filter(s => s.gpa >= m);
-    }
-    if (maxGpa !== undefined) {
-      const M = parseFloat(maxGpa);
-      if (!isNaN(M)) results = results.filter(s => s.gpa <= M);
-    }
-    if (name) {
-      const q = name.toLowerCase();
-      results = results.filter(s => s.name.toLowerCase().includes(q));
-    }
-    if (major) {
-      const q = major.toLowerCase();
-      results = results.filter(s => s.major.toLowerCase().includes(q));
-    }
+        // Filter by GPA Range
+        if (minGpa !== undefined) {
+            const m = parseFloat(minGpa);
+            if (!isNaN(m)) results = results.filter(s => s.gpa >= m);
+        }
+        if (maxGpa !== undefined) {
+            const M = parseFloat(maxGpa);
+            if (!isNaN(M)) results = results.filter(s => s.gpa <= M);
+        }
+        
+        // Optional: Filter by name/major (partial match)
+        if (name) {
+            const q = name.toLowerCase();
+            results = results.filter(s => s.name.toLowerCase().includes(q));
+        }
 
-    // Sorting
-    if (sort) {
-      const sortField = sort;
-      const direction = (order && order.toLowerCase() === 'desc') ? -1 : 1;
-      results.sort((a, b) => {
-        const va = a[sortField];
-        const vb = b[sortField];
-        if (va === undefined || vb === undefined) return 0;
-        if (typeof va === 'string') return va.localeCompare(vb) * direction;
-        return (va < vb ? -1 : va > vb ? 1 : 0) * direction;
-      });
+        // --- Sorting (Task 8) ---
+        if (sort) {
+            const direction = (order && order.toLowerCase() === 'desc') ? -1 : 1;
+            results.sort((a, b) => {
+                const va = a[sort];
+                const vb = b[sort];
+                if (va === undefined || vb === undefined) return 0;
+                if (typeof va === 'string') return va.localeCompare(vb) * direction;
+                return (va < vb ? -1 : va > vb ? 1 : 0) * direction;
+            });
+        }
+
+        // --- Pagination (Task 8) ---
+        const lim = Math.max(1, parseInt(limit || '10', 10));
+        const pg = Math.max(1, parseInt(page || '1', 10));
+        const start = (pg - 1) * lim;
+        const paginated = results.slice(start, start + lim);
+
+        res.status(200).json({
+            total: results.length,
+            page: pg,
+            limit: lim,
+            data: paginated
+        });
+    } catch (err) {
+        next(err);
     }
-
-    // Pagination
-    const lim = Math.max(1, parseInt(limit || '10', 10));
-    const pg = Math.max(1, parseInt(page || '1', 10));
-    const start = (pg - 1) * lim;
-    const paginated = results.slice(start, start + lim);
-
-    res.json({
-      total: results.length,
-      page: pg,
-      limit: lim,
-      data: paginated
-    });
-  } catch (err) {
-    next(err);
-  }
 });
 
-// TASK A (Create) - POST /studentrecords
+// GET /studentrecords/:id (Read Single)
+app.get('/studentrecords/:id', (req, res) => {
+    const student = findStudentById(req.params.id);
+
+    if (!student) {
+        return res.status(404).json({ error: 'Student record not found.' }); // Task 7
+    }
+    res.status(200).json(student);
+});
+
+
+// Task 1, 5, 6: Create New Student Record
 app.post('/studentrecords', (req, res, next) => {
-  try {
-    const { name, indexNumber, major, age, gpa, email, enrollmentDate } = req.body;
+    try {
+        const { name, major, age, gpa, email, enrollmentDate } = req.body;
 
-    // Required fields check
-    if (!name || !email || typeof gpa === 'undefined' || !indexNumber) {
-      return res.status(400).json({ error: 'Missing required fields: name, email, gpa, and indexNumber are required.' });
+        // --- Validation (Task 5) ---
+        if (!name || !email || gpa === undefined || gpa === null) {
+            return res.status(400).json({ error: 'Missing required fields: name, email, and gpa are required.' }); // Task 7
+        }
+        if (!isValidGpa(gpa)) {
+            return res.status(400).json({ error: 'Invalid GPA. It must be a number between 0.0 and 4.0.' }); // Task 6 & 7
+        }
+        if (age !== undefined && age !== null && (typeof age !== 'number' || age < 16)) {
+             return res.status(400).json({ error: 'Invalid Age. It must be a number greater than 15.' });
+        }
+        
+        // --- Create record ---
+        const newStudent = {
+            id: nextId++,
+            name,
+            major: major || 'Undeclared',
+            age: age || null,
+            gpa: Number(gpa), // Ensure gpa is stored as a number
+            email,
+            enrollmentDate: enrollmentDate || new Date().toISOString().split('T')[0]
+        };
+
+        students.push(newStudent);
+        return res.status(201).json({ message: 'Student created successfully', student: newStudent });
+    } catch (err) {
+        next(err);
     }
-
-    // indexNumber format check
-    if (!indexNumberRegex.test(indexNumber)) {
-      return res.status(400).json({ error: 'Invalid indexNumber. Only letters and numbers are allowed (no spaces or symbols).' });
-    }
-
-    // Prevent duplicate indexNumber
-    if (findStudentByIndex(indexNumber)) {
-      return res.status(409).json({ error: 'A student with this indexNumber already exists.' });
-    }
-
-    // GPA check
-    const numericGpa = Number(gpa);
-    if (isNaN(numericGpa) || !isValidGpa(numericGpa)) {
-      return res.status(400).json({ error: 'Invalid GPA. It must be a number between 0.0 and 4.0.' });
-    }
-
-    // Create record
-    const newStudent = {
-      id: nextId++,
-      indexNumber,
-      name,
-      major: major || 'Undeclared',
-      age: (typeof age === 'number') ? age : (age ? Number(age) : null),
-      gpa: numericGpa,
-      email,
-      enrollmentDate: enrollmentDate || new Date().toISOString().split('T')[0]
-    };
-
-    students.push(newStudent);
-    return res.status(201).json({ message: 'Student created successfully', student: newStudent });
-  } catch (err) {
-    next(err);
-  }
 });
 
-// TASK C (Update) - PATCH /studentrecords/:id
-// Allows partial updates. Validates fields if provided (gpa range, indexNumber format & uniqueness).
+
+// Task 3: Update Student Endpoint (PATCH)
 app.patch('/studentrecords/:id', (req, res, next) => {
-  try {
-    const id = parseInt(req.params.id, 10);
-    if (isNaN(id)) return res.status(400).json({ error: 'Invalid ID parameter.' });
+    try {
+        const student = findStudentById(req.params.id);
+        if (!student) return res.status(404).json({ error: 'Student record not found.' }); // Task 7
 
-    const student = findStudentById(id);
-    if (!student) return res.status(404).json({ error: 'Student not found.' });
+        const updates = req.body;
 
-    const updates = req.body;
+        // --- Validation for updates (Task 5 & 6) ---
+        if (updates.gpa !== undefined && !isValidGpa(Number(updates.gpa))) {
+            return res.status(400).json({ error: 'Invalid GPA provided in update.' }); // Task 7
+        }
+        if (updates.name !== undefined && updates.name.trim() === '') {
+            return res.status(400).json({ error: 'Name cannot be empty.' });
+        }
+        // ... add more validation checks for other fields (e.g., age range) ...
 
-    // If indexNumber provided, validate format and uniqueness
-    if (updates.indexNumber !== undefined) {
-      if (!indexNumberRegex.test(updates.indexNumber)) {
-        return res.status(400).json({ error: 'Invalid indexNumber. Only letters and numbers are allowed.' });
-      }
-      const other = findStudentByIndex(updates.indexNumber);
-      if (other && other.id !== student.id) {
-        return res.status(409).json({ error: 'Another student already uses this indexNumber.' });
-      }
+        // Apply partial updates
+        Object.keys(updates).forEach(key => {
+            // Only update keys that are present in the existing student schema
+            if (student.hasOwnProperty(key)) {
+                // Special handling for number fields that might come in as strings
+                if (key === 'gpa' || key === 'age') {
+                    student[key] = Number(updates[key]);
+                } else {
+                    student[key] = updates[key];
+                }
+            }
+        });
+
+        return res.status(200).json({ message: 'Student updated successfully', student });
+    } catch (err) {
+        next(err);
     }
-
-    // If gpa provided, validate numeric and range
-    if (updates.gpa !== undefined) {
-      const numericGpa = Number(updates.gpa);
-      if (isNaN(numericGpa) || !isValidGpa(numericGpa)) {
-        return res.status(400).json({ error: 'Invalid GPA. It must be a number between 0.0 and 4.0.' });
-      }
-      updates.gpa = numericGpa;
-    }
-
-    // Apply allowed updates - only keys that exist in schema are applied
-    const allowedFields = ['name', 'indexNumber', 'major', 'age', 'gpa', 'email', 'enrollmentDate'];
-    Object.keys(updates).forEach(key => {
-      if (allowedFields.includes(key)) {
-        student[key] = updates[key];
-      }
-    });
-
-    return res.json({ message: 'Student updated successfully', student });
-  } catch (err) {
-    next(err);
-  }
 });
 
-// TASK D (Delete) - DELETE /studentrecords/:id
+
+// Task 4: Delete Student Endpoint
 app.delete('/studentrecords/:id', (req, res, next) => {
-  try {
-    const id = parseInt(req.params.id, 10);
-    if (isNaN(id)) return res.status(400).json({ error: 'Invalid ID parameter.' });
+    try {
+        const id = parseInt(req.params.id, 10);
+        const initialLength = students.length;
 
-    const idx = students.findIndex(s => s.id === id);
-    if (idx === -1) return res.status(404).json({ error: 'Student not found.' });
+        // Filter out the student with the matching ID
+        students = students.filter(s => s.id !== id);
 
-    const deleted = students.splice(idx, 1)[0];
-    return res.json({ message: 'Student deleted successfully', student: deleted });
-  } catch (err) {
-    next(err);
-  }
+        if (students.length === initialLength) {
+            return res.status(404).json({ error: 'Student record not found.' }); // Task 7
+        }
+
+        // 204 No Content is standard for a successful DELETE
+        return res.status(204).send(); 
+    } catch (err) {
+        next(err);
+    }
 });
+
 
 // -------------------------------
-// Error handling middleware (TASK E)
+// Error Handling Middleware (Task 7 - FINAL CATCH-ALL)
 // -------------------------------
 app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
-  res.status(500).json({ error: 'Internal Server Error' });
+    console.error('Unhandled API Error:', err.stack);
+    // Use the error's status if available, otherwise default to 500
+    res.status(err.statusCode || 500).json({ error: 'An unexpected error occurred on the server.' });
 });
 
+
 // -------------------------------
-// Start server
+// Server Start (Fixing PORT issue)
 // -------------------------------
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 3000; // Added fallback port
 app.listen(PORT, () => {
-  console.log('Student Manager API listening on http://localhost:${PORT}');
+    console.log(`Student Manager API listening on http://localhost:${PORT}`);
 });
